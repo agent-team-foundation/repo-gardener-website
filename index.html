@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: dark;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark only">
+<title>repo-gardener — Context-aware review bot for GitHub</title>
+<meta name="description" content="An open-source review bot that comments on PRs and issues based on your project's context tree, not your code. Co-exists with Greptile and CodeRabbit.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #040404;
+    --surface: #0a0a0a;
+    --surface2: #111111;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(255,255,255,0.13);
+    --text: #e8ecf4;
+    --text-dim: rgba(255,255,255,0.45);
+    --text-muted: rgba(255,255,255,0.25);
+    --accent: #4ade80;
+    --accent2: #60a5fa;
+    --accent3: #f59e0b;
+    --accent-warn: #f87171;
+    --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; scrollbar-gutter: stable; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ─────────────── NAV ─────────────── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 56px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(4,4,4,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .nav-logo-icon {
+    width: 22px;
+    height: 22px;
+    color: var(--accent);
+  }
+  .nav-logo-text {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    letter-spacing: -0.01em;
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .nav-links a {
+    font-size: 13px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-weight: 400;
+    transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn-ghost {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    border: 1px solid var(--border-bright);
+    padding: 7px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.3); text-decoration: none; }
+  .btn-primary {
+    font-size: 13px;
+    font-weight: 600;
+    color: #000;
+    background: #fff;
+    padding: 7px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; text-decoration: none; }
+
+  @media (max-width: 720px) {
+    nav { padding: 0 16px; }
+    .nav-links { display: none; }
+  }
+
+  /* ─────────────── DOT GRID BG ─────────────── */
+  .dot-grid-bg {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: 14px 14px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 0%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 0%, transparent 100%);
+  }
+
+  /* ─────────────── HERO ─────────────── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 120px 32px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-h1-logo {
+    display: block;
+    width: clamp(56px, 9vw, 96px);
+    height: auto;
+    color: var(--accent);
+    margin: 0 auto 24px;
+  }
+
+  .hero-h1 {
+    font-size: clamp(40px, 7vw, 76px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+    line-height: 1.05;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 1;
+  }
+  .hero-h1 .accent-word {
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.5) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: clamp(16px, 2.2vw, 20px);
+    font-weight: 400;
+    color: var(--text-dim);
+    max-width: 620px;
+    margin: 22px auto 0;
+    line-height: 1.65;
+    position: relative;
+    z-index: 1;
+  }
+  .hero-sub strong { color: var(--text); font-weight: 500; }
+  .hero-sub code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: rgba(255,255,255,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: rgba(255,255,255,0.7);
+  }
+
+  .hero-install {
+    margin: 40px auto 0;
+    width: 100%;
+    max-width: 760px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .install-box {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    border-radius: 10px;
+    padding: 16px 18px;
+    text-align: left;
+    box-shadow: 0 0 40px rgba(74,222,128,0.04);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .install-box:hover {
+    border-color: rgba(74,222,128,0.25);
+    box-shadow: 0 0 30px rgba(74,222,128,0.06);
+  }
+  .install-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.7;
+    margin-bottom: 8px;
+  }
+  .install-cmd {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    word-break: break-all;
+    white-space: pre-wrap;
+    user-select: all;
+    line-height: 1.55;
+  }
+
+  .hero-trust-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .hero-trust-row span { display: inline-flex; align-items: center; gap: 6px; }
+  .hero-trust-row .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted); }
+
+  /* ─────────────── SECTIONS ─────────────── */
+  section { position: relative; padding: 80px 0; border-top: 1px solid var(--border); }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+  .container-narrow { max-width: 760px; margin: 0 auto; padding: 0 32px; }
+
+  .section-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    opacity: 0.7;
+    margin-bottom: 14px;
+  }
+  .section-title {
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+  .section-body {
+    font-size: 17px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    max-width: 640px;
+  }
+  .section-body strong { color: var(--text); font-weight: 500; }
+  .section-body code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: rgba(255,255,255,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: rgba(255,255,255,0.85);
+  }
+
+  /* ─────────────── COMPARISON TABLE ─────────────── */
+  .comp-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 32px;
+    font-size: 14px;
+  }
+  .comp-table th, .comp-table td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .comp-table th {
+    font-weight: 500;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .comp-table td { color: var(--text-dim); }
+  .comp-table tr.gardener-row td {
+    background: rgba(74,222,128,0.04);
+    color: var(--text);
+    font-weight: 500;
+  }
+  .comp-table tr.gardener-row td:first-child { color: var(--accent); }
+  .comp-table .check { color: var(--accent); }
+  .comp-table .nope { color: var(--text-muted); }
+
+  /* ─────────────── VERDICT GRID ─────────────── */
+  .verdict-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 36px;
+  }
+  .verdict-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px;
+    transition: border-color 0.2s;
+  }
+  .verdict-card:hover { border-color: var(--border-bright); }
+  .verdict-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .verdict-card[data-type="aligned"] .verdict-name { color: var(--accent); }
+  .verdict-card[data-type="new"] .verdict-name { color: var(--accent2); }
+  .verdict-card[data-type="needs"] .verdict-name { color: var(--accent3); }
+  .verdict-card[data-type="conflict"] .verdict-name { color: var(--accent-warn); }
+  .verdict-card[data-type="insufficient"] .verdict-name { color: var(--text-dim); }
+  .verdict-desc {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+
+  /* ─────────────── CODE/COMMENT EXAMPLE ─────────────── */
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+    margin-top: 24px;
+  }
+  .code-block .comment { color: var(--text-muted); }
+  .code-block .verdict-conflict { color: var(--accent-warn); font-weight: 600; }
+  .code-block .label { color: var(--accent2); }
+
+  /* ─────────────── TWO-MODE CARDS ─────────────── */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 32px;
+  }
+  @media (max-width: 720px) { .mode-grid { grid-template-columns: 1fr; } }
+
+  .mode-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+  }
+  .mode-card h3 {
+    font-size: 18px;
+    color: #fff;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .mode-card .mode-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.7;
+    margin-bottom: 14px;
+    display: block;
+  }
+  .mode-card p {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 14px;
+    line-height: 1.6;
+  }
+  .mode-card pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.6;
+  }
+
+  /* ─────────────── FAQ ─────────────── */
+  .faq-list { margin-top: 32px; }
+  .faq-item {
+    border-top: 1px solid var(--border);
+    padding: 22px 0;
+  }
+  .faq-item:last-child { border-bottom: 1px solid var(--border); }
+  .faq-q {
+    font-size: 16px;
+    font-weight: 500;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .faq-a {
+    font-size: 15px;
+    color: var(--text-dim);
+    line-height: 1.65;
+  }
+
+  /* ─────────────── FOOTER ─────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 60px 32px 40px;
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+  }
+  footer a { color: var(--text-dim); }
+  footer a:hover { color: var(--text); text-decoration: none; }
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .footer-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ─────────────── FLOW DIAGRAM ─────────────── */
+  .flow-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 32px;
+  }
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    position: relative;
+  }
+  .flow-step .step-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    opacity: 0.7;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .flow-step h4 {
+    font-size: 14px;
+    color: #fff;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .flow-step p {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo">
+    <svg class="nav-logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22V8"/>
+      <path d="M5 12c0-5 7-7 7-7s7 2 7 7c0 3-3 5-7 5s-7-2-7-5z"/>
+    </svg>
+    <span class="nav-logo-text">repo-gardener</span>
+  </a>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#verdicts">Verdicts</a>
+    <a href="#modes">Modes</a>
+    <a href="#compare">vs other bots</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <div class="nav-cta">
+    <a href="https://github.com/agent-team-foundation/repo-gardener" class="btn-ghost">GitHub</a>
+    <a href="#install" class="btn-primary">Install</a>
+  </div>
+</nav>
+
+<!-- ─────────────── HERO ─────────────── -->
+<section class="hero">
+  <div class="dot-grid-bg"></div>
+
+  <svg class="hero-h1-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 22V8"/>
+    <path d="M5 12c0-5 7-7 7-7s7 2 7 7c0 3-3 5-7 5s-7-2-7-5z"/>
+  </svg>
+
+  <h1 class="hero-h1">
+    Reviews <span class="accent-word">context fit,</span><br>not your code.
+  </h1>
+
+  <p class="hero-sub">
+    An open-source review bot that comments on PRs and issues based on your project's <strong>context tree</strong> — not your code.
+    Co-exists with Greptile, CodeRabbit, and Dependabot. Lives in the empty lane: <strong>does this PR fit the product thesis we already wrote down?</strong>
+  </p>
+
+  <div class="hero-install" id="install">
+    <div class="install-box">
+      <div class="install-label">Paste this into Claude Code</div>
+      <div class="install-cmd">Fetch and execute https://raw.githubusercontent.com/agent-team-foundation/repo-gardener/v2.1.4/.claude/commands/gardener-onboarding.md</div>
+    </div>
+    <div class="hero-trust-row">
+      <span><span class="dot"></span>Apache 2.0</span>
+      <span><span class="dot"></span>v2.1.4</span>
+      <span><span class="dot"></span>Pinned to commit SHA</span>
+      <span><span class="dot"></span>Comment-only — never pushes code</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── PROBLEM ─────────────── -->
+<section>
+  <div class="container-narrow">
+    <div class="section-eyebrow">0.0 — The problem</div>
+    <h2 class="section-title">Your team's context lives in nobody's head.</h2>
+    <p class="section-body" style="margin-top: 16px;">
+      Every week your team makes product decisions: "we defer dark mode to v3", "we chose Paddle over Stripe", "no session tokens, use JWT rotation". These decisions live in Slack threads, design docs, and people's heads.
+    </p>
+    <p class="section-body" style="margin-top: 16px;">
+      Three months later, a contributor opens a PR that adds dark mode. The maintainer has to: <strong>remember the decision, find the rationale, write a polite rejection, and hope the same thing doesn't happen next week.</strong>
+    </p>
+    <p class="section-body" style="margin-top: 16px;">
+      Existing OSS bots don't help here. Greptile reviews code. Dependabot bumps versions. Nobody reads your context.
+    </p>
+    <p class="section-body" style="margin-top: 16px;">
+      <strong>repo-gardener reads your context tree</strong> — the knowledge base where those decisions live — and comments on PRs and issues that touch them, with specific tree node references.
+    </p>
+  </div>
+</section>
+
+<!-- ─────────────── HOW IT WORKS ─────────────── -->
+<section id="how">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-eyebrow">How it works</div>
+      <h2 class="section-title">Five steps. One comment per PR.</h2>
+    </div>
+
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="step-num">STEP 0</div>
+        <h4>Load config</h4>
+        <p>Read <code>.claude/gardener-config.yaml</code> for target repo and tree URL.</p>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">STEP 1</div>
+        <h4>Scan</h4>
+        <p>Fetch open PRs and issues via <code>gh api</code>. No clone.</p>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">STEP 2</div>
+        <h4>Check state</h4>
+        <p>Skip items already reviewed at the same commit. Honor <code>@gardener pause</code>/<code>ignore</code>.</p>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">STEP 3</div>
+        <h4>Pull tree</h4>
+        <p>Shallow clone the context tree from <code>tree_repo</code>.</p>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">STEP 4</div>
+        <h4>Classify &amp; comment</h4>
+        <p>Map the diff to tree nodes. Pick a verdict. Edit existing comment in place.</p>
+      </div>
+    </div>
+
+    <p class="section-body" style="margin: 32px auto 0; text-align: center; max-width: 640px;">
+      Comment-only. Never pushes code. Never opens PRs. Never modifies branches. Idempotent across runs via commit-pinned state markers.
+    </p>
+  </div>
+</section>
+
+<!-- ─────────────── VERDICTS ─────────────── -->
+<section id="verdicts">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-eyebrow">Five verdict types</div>
+      <h2 class="section-title">Machine-readable. Human-scannable.</h2>
+      <p class="section-body" style="margin: 16px auto 0; max-width: 600px;">
+        Every comment starts with a structured prefix: <code>gardener:verdict: TYPE · severity: level</code>. CI scripts can grep it. Maintainers see the verdict at a glance.
+      </p>
+    </div>
+
+    <div class="verdict-grid">
+      <div class="verdict-card" data-type="aligned">
+        <div class="verdict-name">✅ ALIGNED</div>
+        <div class="verdict-desc">Fully consistent with tree decisions. Silent unless severity is high.</div>
+      </div>
+      <div class="verdict-card" data-type="new">
+        <div class="verdict-name">🆕 NEW_TERRITORY</div>
+        <div class="verdict-desc">Tree has no guidance. Safe but worth documenting.</div>
+      </div>
+      <div class="verdict-card" data-type="needs">
+        <div class="verdict-name">❓ NEEDS_REVIEW</div>
+        <div class="verdict-desc">Partial overlap with tree; human judgment required.</div>
+      </div>
+      <div class="verdict-card" data-type="conflict">
+        <div class="verdict-name">⚠️ CONFLICT</div>
+        <div class="verdict-desc">Directly contradicts a tree decision. Recommend reconsideration.</div>
+      </div>
+      <div class="verdict-card" data-type="insufficient">
+        <div class="verdict-name">❔ INSUFFICIENT_CONTEXT</div>
+        <div class="verdict-desc">Tree has partial info but not enough to decide.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── EXAMPLE COMMENT ─────────────── -->
+<section>
+  <div class="container-narrow">
+    <div class="section-eyebrow">Example output</div>
+    <h2 class="section-title">A real gardener comment.</h2>
+    <p class="section-body" style="margin-top: 16px;">
+      A PR adds a dark-mode toggle, but the team decided in 2024-01 to defer dark mode to v3. Gardener spots the conflict, cites the exact tree node, and recommends an action.
+    </p>
+
+<pre class="code-block"><span class="comment">&lt;!-- gardener:state · reviewed=abc1234 · verdict=CONFLICT · severity=high · tree_sha=def5678 --&gt;</span>
+
+🌱 <strong>gardener:verdict:</strong> <span class="verdict-conflict">CONFLICT</span> · severity: <span class="verdict-conflict">high</span> · commit: abc1234
+
+&gt; [!WARNING]
+&gt; <strong>Context Review</strong> — checks product-context fit, not code
+&gt; correctness. Run Greptile/CodeRabbit for code review.
+
+### Summary
+This PR conflicts with the 2024-01 decision to defer dark mode to v3.
+
+| Area | Item intent | Tree guidance | Fit |
+|------|-------------|---------------|-----|
+| Dark mode | Adds toggle | Deferred to v3 per <span class="label">design/no-dark-mode.md</span> | ⚠️ Conflict |
+
+### Tree nodes referenced
+- <span class="label">design/no-dark-mode.md</span> — team decision 2024-01
+- <span class="label">roadmap/2024-q3.md</span> — listed under "not in scope"
+
+### Recommendation
+Close this PR or defer to v3 milestone.
+</pre>
+
+    <p class="section-body" style="margin-top: 16px;">
+      The first line is an HTML comment — invisible, machine-readable. The verdict line is visible at the top so maintainers see <code>CONFLICT · high</code> at a glance. The footer (omitted here) links back to repo-gardener and the tree repo so curious readers can learn what's reviewing them.
+    </p>
+  </div>
+</section>
+
+<!-- ─────────────── TWO MODES ─────────────── -->
+<section id="modes">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-eyebrow">Two install modes</div>
+      <h2 class="section-title">Review your repo. Or someone else's.</h2>
+      <p class="section-body" style="margin: 16px auto 0; max-width: 640px;">
+        Gardener decouples "which repo to review" from "where to store the config". Same review logic, two install paths.
+      </p>
+    </div>
+
+    <div class="mode-grid">
+      <div class="mode-card">
+        <span class="mode-tag">Mode 1</span>
+        <h3>🔧 Maintainer mode</h3>
+        <p>You maintain a repo. Install gardener in it. Commits land on your default branch. <code>gardener:reviewed</code> labels keep ALIGNED items silent.</p>
+<pre>target_repo: acme/api
+tree_repo:   github.com/acme/context-tree</pre>
+      </div>
+
+      <div class="mode-card">
+        <span class="mode-tag">Mode 2</span>
+        <h3>🌍 External reviewer mode</h3>
+        <p>You want to review an OSS project you don't maintain. Store config in your own repo (typically your tree). Gardener never touches the target — only <code>gh api</code>.</p>
+<pre>target_repo: paperclipai/paperclip
+tree_repo:   github.com/you/paperclip-tree
+config_repo: you/paperclip-tree</pre>
+      </div>
+    </div>
+
+    <p class="section-body" style="margin: 32px auto 0; text-align: center; max-width: 640px;">
+      No fork, no install PR on a stranger's repo, no trust negotiation. The maintainers get free context reviews from your GitHub identity.
+    </p>
+  </div>
+</section>
+
+<!-- ─────────────── COMPARISON ─────────────── -->
+<section id="compare">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-eyebrow">vs other OSS bots</div>
+      <h2 class="section-title">An empty lane.</h2>
+      <p class="section-body" style="margin: 16px auto 0; max-width: 640px;">
+        Every other OSS bot competes on code-level review. None read context trees. Install gardener <strong>alongside</strong> Greptile or CodeRabbit — they don't overlap.
+      </p>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>Bot</th>
+            <th>Lane</th>
+            <th>Output</th>
+            <th>Reads context?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Greptile</td><td>Code review</td><td>Inline comments, summaries, bug flags</td><td class="nope">No</td></tr>
+          <tr><td>CodeRabbit</td><td>Code review</td><td>Walkthroughs, inline suggestions</td><td class="nope">No</td></tr>
+          <tr><td>DeepSource</td><td>Static analysis</td><td>Issue counts, autofix</td><td class="nope">No</td></tr>
+          <tr><td>Sweep</td><td>Issue → PR</td><td>Opens PRs from issues</td><td class="nope">No</td></tr>
+          <tr><td>Dependabot / Renovate</td><td>Dependency updates</td><td>Version bump PRs</td><td class="nope">No</td></tr>
+          <tr><td>Sourcery</td><td>Refactoring</td><td>Quality scores, refactor diffs</td><td class="nope">No</td></tr>
+          <tr class="gardener-row">
+            <td>🌱 repo-gardener</td>
+            <td>Product context fit</td>
+            <td>Structured comments citing tree nodes</td>
+            <td class="check">Yes — reads CLAUDE.md, AGENTS.md, context tree</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── FAQ ─────────────── -->
+<section id="faq">
+  <div class="container-narrow">
+    <div class="section-eyebrow">FAQ</div>
+    <h2 class="section-title">Common questions</h2>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">Does gardener push code or open PRs?</div>
+        <div class="faq-a">No. Comment-only. Always. Code-level fixes are someone else's job (Greptile, CodeRabbit, you).</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">What's a context tree?</div>
+        <div class="faq-a">A separate GitHub repo holding your project's design decisions, conventions, and constraints in markdown. <a href="https://github.com/agent-team-foundation/first-tree">First-Tree</a> is the companion CLI for building one if you don't have one yet.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">Will gardener spam my PRs?</div>
+        <div class="faq-a">No. Silent when ALIGNED + low severity (uses a label instead of a comment on your own repos). Re-reviews edit the existing comment in place — never stack. And maintainers can <code>@gardener pause</code> any item.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">Does it conflict with Greptile / CodeRabbit?</div>
+        <div class="faq-a">No. Different lane. Greptile reviews code correctness; gardener reviews context fit. Install both. Each comment has a structured <code>gardener:verdict:</code> prefix so you can filter or grep.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">Can I use it on a repo I don't maintain?</div>
+        <div class="faq-a">Yes. External reviewer mode (Mode 2 above). Store config in your own repo, target the upstream OSS project. Gardener uses your GitHub identity to comment.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">How is state tracked?</div>
+        <div class="faq-a">HTML comment markers inside gardener's own comments (commit-pinned), plus a <code>gardener:reviewed</code> label for silent-aligned items, plus an <code>eyes</code> reaction as a soft lock. No separate database.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">Where does it run?</div>
+        <div class="faq-a">Two ways: <code>/loop 10m</code> on your local machine via Claude Code, or <code>/schedule</code> as a cloud agent that runs every hour even when your laptop is closed.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">Is it free?</div>
+        <div class="faq-a">Apache 2.0. The runtime cost is your Claude API tokens (the agent uses them to read tree nodes and write reviews).</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── GET STARTED ─────────────── -->
+<section>
+  <div class="container-narrow" style="text-align: center;">
+    <div class="section-eyebrow">Get started</div>
+    <h2 class="section-title">Plant a 🌱 in five minutes.</h2>
+    <p class="section-body" style="margin: 16px auto 0;">
+      Open Claude Code in your project directory and paste the install command. Gardener will ask whether you want to review your own repo or an external one, then guide you through the rest.
+    </p>
+
+    <div class="hero-install" style="margin-top: 28px;">
+      <div class="install-box">
+        <div class="install-label">Install command</div>
+        <div class="install-cmd">Fetch and execute https://raw.githubusercontent.com/agent-team-foundation/repo-gardener/v2.1.4/.claude/commands/gardener-onboarding.md</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── FOOTER ─────────────── -->
+<footer>
+  <div class="footer-links">
+    <a href="https://github.com/agent-team-foundation/repo-gardener">GitHub</a>
+    <a href="https://github.com/agent-team-foundation/repo-gardener/releases">Releases</a>
+    <a href="https://github.com/agent-team-foundation/first-tree">First-Tree</a>
+    <a href="https://github.com/agent-team-foundation">Agent Team Foundation</a>
+  </div>
+  <div class="footer-meta">
+    🌱 repo-gardener v2.1.4 · Apache 2.0 · Built by <a href="https://github.com/agent-team-foundation">Agent Team Foundation</a>
+  </div>
+</footer>
+
+</body>
+</html>
