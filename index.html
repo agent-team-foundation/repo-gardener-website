@@ -251,7 +251,7 @@
   .hero-trust-row .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted); }
 
   /* ─────────────── SECTIONS ─────────────── */
-  section { position: relative; padding: 80px 0; border-top: 1px solid var(--border); }
+  section { position: relative; padding: 120px 0; border-top: 1px solid var(--border); }
   .container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
   .container-narrow { max-width: 760px; margin: 0 auto; padding: 0 32px; }
 
@@ -514,11 +514,9 @@
     <span class="nav-logo-text">repo-gardener</span>
   </a>
   <div class="nav-links">
-    <a href="#how">How it works</a>
     <a href="#verdicts">Verdicts</a>
-    <a href="#modes">Modes</a>
     <a href="#compare">vs other bots</a>
-    <a href="#faq">FAQ</a>
+    <a href="#modes">Modes</a>
   </div>
   <div class="nav-cta">
     <a href="https://github.com/agent-team-foundation/repo-gardener" class="btn-ghost">GitHub</a>
@@ -540,118 +538,20 @@
   </h1>
 
   <p class="hero-sub">
-    An open-source review bot that comments on PRs and issues based on your project's <strong>context tree</strong> — not your code.
-    Co-exists with Greptile, CodeRabbit, and Dependabot. Lives in the empty lane: <strong>does this PR fit the product thesis we already wrote down?</strong>
+    Open-source review bot that comments on PRs against your <strong>context tree</strong>, not your code.
   </p>
 
   <div class="hero-install" id="install">
     <div class="install-box">
-      <div class="install-label">Paste this into Claude Code</div>
+      <div class="install-label">Paste into Claude Code</div>
       <div class="install-cmd">Fetch and execute https://raw.githubusercontent.com/agent-team-foundation/repo-gardener/v2.1.4/.claude/commands/gardener-onboarding.md</div>
     </div>
     <div class="hero-trust-row">
-      <span><span class="dot"></span>Apache 2.0</span>
-      <span><span class="dot"></span>v2.1.4</span>
-      <span><span class="dot"></span>Pinned to commit SHA</span>
-      <span><span class="dot"></span>Comment-only — never pushes code</span>
-    </div>
-  </div>
-</section>
-
-<!-- ─────────────── PROBLEM ─────────────── -->
-<section>
-  <div class="container-narrow">
-    <div class="section-eyebrow">0.0 — The problem</div>
-    <h2 class="section-title">Your team's context lives in nobody's head.</h2>
-    <p class="section-body" style="margin-top: 16px;">
-      Every week your team makes product decisions: "we defer dark mode to v3", "we chose Paddle over Stripe", "no session tokens, use JWT rotation". These decisions live in Slack threads, design docs, and people's heads.
-    </p>
-    <p class="section-body" style="margin-top: 16px;">
-      Three months later, a contributor opens a PR that adds dark mode. The maintainer has to: <strong>remember the decision, find the rationale, write a polite rejection, and hope the same thing doesn't happen next week.</strong>
-    </p>
-    <p class="section-body" style="margin-top: 16px;">
-      Existing OSS bots don't help here. Greptile reviews code. Dependabot bumps versions. Nobody reads your context.
-    </p>
-    <p class="section-body" style="margin-top: 16px;">
-      <strong>repo-gardener reads your context tree</strong> — the knowledge base where those decisions live — and comments on PRs and issues that touch them, with specific tree node references.
-    </p>
-  </div>
-</section>
-
-<!-- ─────────────── HOW IT WORKS ─────────────── -->
-<section id="how">
-  <div class="container">
-    <div style="text-align: center;">
-      <div class="section-eyebrow">How it works</div>
-      <h2 class="section-title">Five steps. One comment per PR.</h2>
-    </div>
-
-    <div class="flow-steps">
-      <div class="flow-step">
-        <div class="step-num">STEP 0</div>
-        <h4>Load config</h4>
-        <p>Read <code>.claude/gardener-config.yaml</code> for target repo and tree URL.</p>
-      </div>
-      <div class="flow-step">
-        <div class="step-num">STEP 1</div>
-        <h4>Scan</h4>
-        <p>Fetch open PRs and issues via <code>gh api</code>. No clone.</p>
-      </div>
-      <div class="flow-step">
-        <div class="step-num">STEP 2</div>
-        <h4>Check state</h4>
-        <p>Skip items already reviewed at the same commit. Honor <code>@gardener pause</code>/<code>ignore</code>.</p>
-      </div>
-      <div class="flow-step">
-        <div class="step-num">STEP 3</div>
-        <h4>Pull tree</h4>
-        <p>Shallow clone the context tree from <code>tree_repo</code>.</p>
-      </div>
-      <div class="flow-step">
-        <div class="step-num">STEP 4</div>
-        <h4>Classify &amp; comment</h4>
-        <p>Map the diff to tree nodes. Pick a verdict. Edit existing comment in place.</p>
-      </div>
-    </div>
-
-    <p class="section-body" style="margin: 32px auto 0; text-align: center; max-width: 640px;">
-      Comment-only. Never pushes code. Never opens PRs. Never modifies branches. Idempotent across runs via commit-pinned state markers.
-    </p>
-  </div>
-</section>
-
-<!-- ─────────────── VERDICTS ─────────────── -->
-<section id="verdicts">
-  <div class="container">
-    <div style="text-align: center;">
-      <div class="section-eyebrow">Five verdict types</div>
-      <h2 class="section-title">Machine-readable. Human-scannable.</h2>
-      <p class="section-body" style="margin: 16px auto 0; max-width: 600px;">
-        Every comment starts with a structured prefix: <code>gardener:verdict: TYPE · severity: level</code>. CI scripts can grep it. Maintainers see the verdict at a glance.
-      </p>
-    </div>
-
-    <div class="verdict-grid">
-      <div class="verdict-card" data-type="aligned">
-        <div class="verdict-name">✅ ALIGNED</div>
-        <div class="verdict-desc">Fully consistent with tree decisions. Silent unless severity is high.</div>
-      </div>
-      <div class="verdict-card" data-type="new">
-        <div class="verdict-name">🆕 NEW_TERRITORY</div>
-        <div class="verdict-desc">Tree has no guidance. Safe but worth documenting.</div>
-      </div>
-      <div class="verdict-card" data-type="needs">
-        <div class="verdict-name">❓ NEEDS_REVIEW</div>
-        <div class="verdict-desc">Partial overlap with tree; human judgment required.</div>
-      </div>
-      <div class="verdict-card" data-type="conflict">
-        <div class="verdict-name">⚠️ CONFLICT</div>
-        <div class="verdict-desc">Directly contradicts a tree decision. Recommend reconsideration.</div>
-      </div>
-      <div class="verdict-card" data-type="insufficient">
-        <div class="verdict-name">❔ INSUFFICIENT_CONTEXT</div>
-        <div class="verdict-desc">Tree has partial info but not enough to decide.</div>
-      </div>
+      <span>Apache 2.0</span>
+      <span><span class="dot"></span></span>
+      <span>v2.1.4</span>
+      <span><span class="dot"></span></span>
+      <span>Comment-only</span>
     </div>
   </div>
 </section>
@@ -659,74 +559,54 @@
 <!-- ─────────────── EXAMPLE COMMENT ─────────────── -->
 <section>
   <div class="container-narrow">
-    <div class="section-eyebrow">Example output</div>
-    <h2 class="section-title">A real gardener comment.</h2>
-    <p class="section-body" style="margin-top: 16px;">
-      A PR adds a dark-mode toggle, but the team decided in 2024-01 to defer dark mode to v3. Gardener spots the conflict, cites the exact tree node, and recommends an action.
-    </p>
+    <div class="section-eyebrow">Example</div>
+    <h2 class="section-title">What gardener posts.</h2>
 
-<pre class="code-block"><span class="comment">&lt;!-- gardener:state · reviewed=abc1234 · verdict=CONFLICT · severity=high · tree_sha=def5678 --&gt;</span>
+<pre class="code-block"><span class="comment">&lt;!-- gardener:state · reviewed=abc1234 · verdict=CONFLICT --&gt;</span>
 
-🌱 <strong>gardener:verdict:</strong> <span class="verdict-conflict">CONFLICT</span> · severity: <span class="verdict-conflict">high</span> · commit: abc1234
+🌱 <strong>gardener:verdict:</strong> <span class="verdict-conflict">CONFLICT</span> · severity: <span class="verdict-conflict">high</span>
 
-&gt; [!WARNING]
-&gt; <strong>Context Review</strong> — checks product-context fit, not code
-&gt; correctness. Run Greptile/CodeRabbit for code review.
-
-### Summary
 This PR conflicts with the 2024-01 decision to defer dark mode to v3.
 
-| Area | Item intent | Tree guidance | Fit |
-|------|-------------|---------------|-----|
+| Area | PR intent | Tree guidance | Fit |
+|------|-----------|---------------|-----|
 | Dark mode | Adds toggle | Deferred to v3 per <span class="label">design/no-dark-mode.md</span> | ⚠️ Conflict |
 
-### Tree nodes referenced
-- <span class="label">design/no-dark-mode.md</span> — team decision 2024-01
-- <span class="label">roadmap/2024-q3.md</span> — listed under "not in scope"
-
-### Recommendation
-Close this PR or defer to v3 milestone.
+<strong>Recommendation:</strong> close or defer to v3 milestone.
 </pre>
-
-    <p class="section-body" style="margin-top: 16px;">
-      The first line is an HTML comment — invisible, machine-readable. The verdict line is visible at the top so maintainers see <code>CONFLICT · high</code> at a glance. The footer (omitted here) links back to repo-gardener and the tree repo so curious readers can learn what's reviewing them.
-    </p>
   </div>
 </section>
 
-<!-- ─────────────── TWO MODES ─────────────── -->
-<section id="modes">
+<!-- ─────────────── VERDICTS ─────────────── -->
+<section id="verdicts">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-eyebrow">Two install modes</div>
-      <h2 class="section-title">Review your repo. Or someone else's.</h2>
-      <p class="section-body" style="margin: 16px auto 0; max-width: 640px;">
-        Gardener decouples "which repo to review" from "where to store the config". Same review logic, two install paths.
-      </p>
+      <div class="section-eyebrow">Verdicts</div>
+      <h2 class="section-title">Five outcomes.</h2>
     </div>
 
-    <div class="mode-grid">
-      <div class="mode-card">
-        <span class="mode-tag">Mode 1</span>
-        <h3>🔧 Maintainer mode</h3>
-        <p>You maintain a repo. Install gardener in it. Commits land on your default branch. <code>gardener:reviewed</code> labels keep ALIGNED items silent.</p>
-<pre>target_repo: acme/api
-tree_repo:   github.com/acme/context-tree</pre>
+    <div class="verdict-grid">
+      <div class="verdict-card" data-type="aligned">
+        <div class="verdict-name">✅ ALIGNED</div>
+        <div class="verdict-desc">Consistent with tree.</div>
       </div>
-
-      <div class="mode-card">
-        <span class="mode-tag">Mode 2</span>
-        <h3>🌍 External reviewer mode</h3>
-        <p>You want to review an OSS project you don't maintain. Store config in your own repo (typically your tree). Gardener never touches the target — only <code>gh api</code>.</p>
-<pre>target_repo: paperclipai/paperclip
-tree_repo:   github.com/you/paperclip-tree
-config_repo: you/paperclip-tree</pre>
+      <div class="verdict-card" data-type="new">
+        <div class="verdict-name">🆕 NEW_TERRITORY</div>
+        <div class="verdict-desc">Tree has no guidance.</div>
+      </div>
+      <div class="verdict-card" data-type="needs">
+        <div class="verdict-name">❓ NEEDS_REVIEW</div>
+        <div class="verdict-desc">Partial overlap. Human required.</div>
+      </div>
+      <div class="verdict-card" data-type="conflict">
+        <div class="verdict-name">⚠️ CONFLICT</div>
+        <div class="verdict-desc">Contradicts a tree decision.</div>
+      </div>
+      <div class="verdict-card" data-type="insufficient">
+        <div class="verdict-name">❔ INSUFFICIENT</div>
+        <div class="verdict-desc">Tree info too thin to decide.</div>
       </div>
     </div>
-
-    <p class="section-body" style="margin: 32px auto 0; text-align: center; max-width: 640px;">
-      No fork, no install PR on a stranger's repo, no trust negotiation. The maintainers get free context reviews from your GitHub identity.
-    </p>
   </div>
 </section>
 
@@ -734,11 +614,8 @@ config_repo: you/paperclip-tree</pre>
 <section id="compare">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-eyebrow">vs other OSS bots</div>
+      <div class="section-eyebrow">vs other bots</div>
       <h2 class="section-title">An empty lane.</h2>
-      <p class="section-body" style="margin: 16px auto 0; max-width: 640px;">
-        Every other OSS bot competes on code-level review. None read context trees. Install gardener <strong>alongside</strong> Greptile or CodeRabbit — they don't overlap.
-      </p>
     </div>
 
     <div style="overflow-x: auto;">
@@ -747,22 +624,19 @@ config_repo: you/paperclip-tree</pre>
           <tr>
             <th>Bot</th>
             <th>Lane</th>
-            <th>Output</th>
             <th>Reads context?</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>Greptile</td><td>Code review</td><td>Inline comments, summaries, bug flags</td><td class="nope">No</td></tr>
-          <tr><td>CodeRabbit</td><td>Code review</td><td>Walkthroughs, inline suggestions</td><td class="nope">No</td></tr>
-          <tr><td>DeepSource</td><td>Static analysis</td><td>Issue counts, autofix</td><td class="nope">No</td></tr>
-          <tr><td>Sweep</td><td>Issue → PR</td><td>Opens PRs from issues</td><td class="nope">No</td></tr>
-          <tr><td>Dependabot / Renovate</td><td>Dependency updates</td><td>Version bump PRs</td><td class="nope">No</td></tr>
-          <tr><td>Sourcery</td><td>Refactoring</td><td>Quality scores, refactor diffs</td><td class="nope">No</td></tr>
+          <tr><td>Greptile</td><td>Code review</td><td class="nope">No</td></tr>
+          <tr><td>CodeRabbit</td><td>Code review</td><td class="nope">No</td></tr>
+          <tr><td>DeepSource</td><td>Static analysis</td><td class="nope">No</td></tr>
+          <tr><td>Dependabot</td><td>Dependency updates</td><td class="nope">No</td></tr>
+          <tr><td>Sweep</td><td>Issue → PR</td><td class="nope">No</td></tr>
           <tr class="gardener-row">
             <td>🌱 repo-gardener</td>
             <td>Product context fit</td>
-            <td>Structured comments citing tree nodes</td>
-            <td class="check">Yes — reads CLAUDE.md, AGENTS.md, context tree</td>
+            <td class="check">Yes</td>
           </tr>
         </tbody>
       </table>
@@ -770,51 +644,28 @@ config_repo: you/paperclip-tree</pre>
   </div>
 </section>
 
-<!-- ─────────────── FAQ ─────────────── -->
-<section id="faq">
-  <div class="container-narrow">
-    <div class="section-eyebrow">FAQ</div>
-    <h2 class="section-title">Common questions</h2>
+<!-- ─────────────── TWO MODES ─────────────── -->
+<section id="modes">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-eyebrow">Two modes</div>
+      <h2 class="section-title">Your repo. Or someone else's.</h2>
+    </div>
 
-    <div class="faq-list">
-      <div class="faq-item">
-        <div class="faq-q">Does gardener push code or open PRs?</div>
-        <div class="faq-a">No. Comment-only. Always. Code-level fixes are someone else's job (Greptile, CodeRabbit, you).</div>
+    <div class="mode-grid">
+      <div class="mode-card">
+        <h3>Maintainer</h3>
+        <p>Install gardener in your own repo.</p>
+<pre>target_repo: acme/api
+tree_repo:   github.com/acme/tree</pre>
       </div>
 
-      <div class="faq-item">
-        <div class="faq-q">What's a context tree?</div>
-        <div class="faq-a">A separate GitHub repo holding your project's design decisions, conventions, and constraints in markdown. <a href="https://github.com/agent-team-foundation/first-tree">First-Tree</a> is the companion CLI for building one if you don't have one yet.</div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-q">Will gardener spam my PRs?</div>
-        <div class="faq-a">No. Silent when ALIGNED + low severity (uses a label instead of a comment on your own repos). Re-reviews edit the existing comment in place — never stack. And maintainers can <code>@gardener pause</code> any item.</div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-q">Does it conflict with Greptile / CodeRabbit?</div>
-        <div class="faq-a">No. Different lane. Greptile reviews code correctness; gardener reviews context fit. Install both. Each comment has a structured <code>gardener:verdict:</code> prefix so you can filter or grep.</div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-q">Can I use it on a repo I don't maintain?</div>
-        <div class="faq-a">Yes. External reviewer mode (Mode 2 above). Store config in your own repo, target the upstream OSS project. Gardener uses your GitHub identity to comment.</div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-q">How is state tracked?</div>
-        <div class="faq-a">HTML comment markers inside gardener's own comments (commit-pinned), plus a <code>gardener:reviewed</code> label for silent-aligned items, plus an <code>eyes</code> reaction as a soft lock. No separate database.</div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-q">Where does it run?</div>
-        <div class="faq-a">Two ways: <code>/loop 10m</code> on your local machine via Claude Code, or <code>/schedule</code> as a cloud agent that runs every hour even when your laptop is closed.</div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-q">Is it free?</div>
-        <div class="faq-a">Apache 2.0. The runtime cost is your Claude API tokens (the agent uses them to read tree nodes and write reviews).</div>
+      <div class="mode-card">
+        <h3>External reviewer</h3>
+        <p>Review an OSS project you don't maintain. Config lives in your tree repo.</p>
+<pre>target_repo: paperclipai/paperclip
+tree_repo:   github.com/you/tree
+config_repo: you/tree</pre>
       </div>
     </div>
   </div>
@@ -824,14 +675,11 @@ config_repo: you/paperclip-tree</pre>
 <section>
   <div class="container-narrow" style="text-align: center;">
     <div class="section-eyebrow">Get started</div>
-    <h2 class="section-title">Plant a 🌱 in five minutes.</h2>
-    <p class="section-body" style="margin: 16px auto 0;">
-      Open Claude Code in your project directory and paste the install command. Gardener will ask whether you want to review your own repo or an external one, then guide you through the rest.
-    </p>
+    <h2 class="section-title">Plant a 🌱.</h2>
 
     <div class="hero-install" style="margin-top: 28px;">
       <div class="install-box">
-        <div class="install-label">Install command</div>
+        <div class="install-label">Install</div>
         <div class="install-cmd">Fetch and execute https://raw.githubusercontent.com/agent-team-foundation/repo-gardener/v2.1.4/.claude/commands/gardener-onboarding.md</div>
       </div>
     </div>
